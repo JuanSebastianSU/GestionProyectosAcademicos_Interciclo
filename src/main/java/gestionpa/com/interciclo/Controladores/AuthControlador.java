@@ -30,33 +30,29 @@ public class AuthControlador {
     private final TutorRepositorio tutorRepositorio;
     private final TipoUsuarioRepositorio tipoUsuarioRepositorio;
 
-    /* =================== LOGIN =================== */
     @PostMapping("/login")
     public ResponseEntity<JwtResponse> login(@RequestBody LoginRequest request) {
         Authentication auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+            new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
         );
 
-        Tutor tutor = tutorServicio.obtenerPorUsername(request.getUsername());
+        String username = auth.getName();
+        Tutor tutor = tutorServicio.obtenerPorUsername(username);
         String rol = (tutor.getTipoUsuario() != null) ? tutor.getTipoUsuario().getNombre() : "USER";
-        String token = jwtService.generateToken(tutor.getUsername(), rol);
 
-        return ResponseEntity.ok(new JwtResponse(token, "Bearer", tutor.getUsername(), rol));
+        String token = jwtService.generateToken(username, rol);
+        return ResponseEntity.ok(new JwtResponse(token, "Bearer", username, rol));
     }
 
-    /* ============== REGISTRO ÚNICO DE ADMIN ============== */
     /**
-     * Crea el ÚNICO usuario ADMIN del sistema (si aún no existe).
-     * - Permite crear desde Postman sin autenticación.
-     * - Auto-crea el TipoUsuario ADMIN si no existe (solo aquí).
-     * - Si ya existe un ADMIN, responde 409.
-     * Body esperado (también acepta vacío; usa defaults):
+     * Crea el ÚNICO usuario ADMIN (si no existe). También crea el TipoUsuario ADMIN si faltara.
+     * Body (opcional):
      * {
-     *   "email": "admin@acceso.com",
-     *   "username": "ADMIN",
-     *   "password": "admin1234",
-     *   "nombre": "ADMIN",     // opcional
-     *   "apellido": "ADMIN"    // opcional
+     *   "email":"admin@acceso.com",
+     *   "username":"ADMIN",
+     *   "password":"admin1234",
+     *   "nombre":"ADMIN",
+     *   "apellido":"ADMIN"
      * }
      */
     @PostMapping("/register-admin")
@@ -73,7 +69,6 @@ public class AuthControlador {
         String nombre   = (body != null && body.get("nombre") != null)   ? String.valueOf(body.get("nombre")).trim()   : "ADMIN";
         String apellido = (body != null && body.get("apellido") != null) ? String.valueOf(body.get("apellido")).trim() : "ADMIN";
 
-        // Unicidad rápida
         if (tutorRepositorio.existsByEmail(email)) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "Email ya existe: " + email));
         }
@@ -81,7 +76,6 @@ public class AuthControlador {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "Username ya existe: " + username));
         }
 
-        // Asegurar TipoUsuario ADMIN (solo en este endpoint)
         TipoUsuario adminRole = tipoUsuarioRepositorio.findByNombre("ADMIN")
                 .orElseGet(() -> {
                     TipoUsuario t = new TipoUsuario();
@@ -90,13 +84,12 @@ public class AuthControlador {
                     return tipoUsuarioRepositorio.save(t);
                 });
 
-        // Crear el tutor-ADMIN usando la lógica del servicio (hashea, valida, único ADMIN, etc.)
         Tutor admin = new Tutor();
         admin.setNombre(nombre);
         admin.setApellido(apellido);
         admin.setEmail(email);
         admin.setUsername(username);
-        admin.setPassword(password);        // será encriptado en el servicio
+        admin.setPassword(password);
         admin.setEstaActivo(true);
         admin.setTipoUsuario(adminRole);
 

@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.LocalDateTime;
 
@@ -47,10 +48,11 @@ public class Estudiante {
     @Column(nullable = false, length = 40)
     private String username; // Sugerencia: CITEXT por migración SQL
 
-    @NotBlank @Size(max = 255)
-    @JsonIgnore
-    @Column(nullable = false, length = 255)
-    private String password;
+    @NotBlank
+@Size(max = 255)
+@JsonProperty(access = JsonProperty.Access.WRITE_ONLY) // <- permite recibirlo en requests pero NO lo devuelve en responses
+@Column(nullable = false, length = 255)
+private String password;
 
     @Builder.Default
     @Column(nullable = false)
