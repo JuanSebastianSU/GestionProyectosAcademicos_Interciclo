@@ -1,10 +1,38 @@
-HELP.md
-target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+# ---- Java / JVM ----
+*.class
+*.log
+hs_err_pid*
+replay_pid*
 
-### STS ###
+# ---- Maven ----
+target/
+# Versionar el Maven Wrapper para builds reproducibles
+!.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.properties
+
+# Si existe este (versiones antiguas), también versionarlo:
+!.mvn/wrapper/MavenWrapperDownloader.java
+
+# ---- Spring Boot / Config (evitar secretos en el repo) ----
+# Ignora tus configs reales; sube un application-example.* con placeholders
+src/main/resources/application.properties
+src/main/resources/application.yml
+src/main/resources/application-*.properties
+src/main/resources/application-*.yml
+# permite subir un archivo de ejemplo
+!src/main/resources/application-example.properties
+!src/main/resources/application-example.yml
+
+# ---- Secrets / Keys / Env ----
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.jks
+
+# ---- IDEs ----
+# STS / Eclipse
 .apt_generated
 .classpath
 .factorypath
@@ -13,13 +41,14 @@ target/
 .springBeans
 .sts4-cache
 
-### IntelliJ IDEA ###
+# IntelliJ IDEA
 .idea
 *.iws
 *.iml
 *.ipr
+out/
 
-### NetBeans ###
+# NetBeans
 /nbproject/private/
 /nbbuild/
 /dist/
@@ -29,5 +58,17 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### VS Code ###
+# VS Code
 .vscode/
+
+# ---- OS junk ----
+.DS_Store
+Thumbs.db
+
+# ---- Logs / Temp ----
+logs/
+*.gz
+tmp/
+temp/
+*.swp
+*~
