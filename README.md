@@ -8,7 +8,7 @@ Estudiante (1–1) Proyecto
 
 ÚNICO ADMIN en todo el sistema
 
-Solo ADMIN crea/edita/borra Tipos de Usuario (TUTOR/ESTUDIANTE). Por API no se puede crear ADMIN.
+Solo ADMIN crea/edita/borra Tipos de Usuario (TUTOR/ESTUDIANTE). Por API no se puede crear/editar ADMIN.
 
 Email de TUTOR debe terminar en @tutor.com
 
@@ -45,7 +45,7 @@ spring.jpa.show-sql=false
 spring.jpa.properties.hibernate.format_sql=true
 
 
-Para producción, mueve el secreto JWT a variables/propiedades externas (ahora está en código para dev).
+Prod tip: mueve el secreto JWT a variables/propiedades externas (en dev está en código).
 
 2) Ejecutar
 mvn spring-boot:run
@@ -64,172 +64,226 @@ Protegido (requiere Authorization: Bearer <JWT>):
 
 Todo lo demás.
 
-Permisos:
+Permisos por rol:
 
 ADMIN: CRUD de Tipos de Usuario (solo TUTOR/ESTUDIANTE), CRUD de Tutores, Estudiantes y Proyectos.
 
-TUTOR: CRUD de Estudiantes y Proyectos (según tu configuración), lectura de Tutores.
+TUTOR: CRUD de Estudiantes y Proyectos; lectura de Tutores (si así está configurado).
 
-ADMIN es único (el servicio lo valida).
+ADMIN es único (validado por servicio).
 
 🧱 Modelo de datos (resumen)
 
-TipoUsuario (id, nombre[unique], descripcion)
+TipoUsuario: id, nombre (único), descripcion
 
-Permitidos por API: TUTOR, ESTUDIANTE (ADMIN solo por /register-admin)
+Por API solo se pueden crear/editar TUTOR y ESTUDIANTE. ADMIN solo se crea en /api/auth/register-admin.
 
-Tutor (id, nombre, apellido, email[unique], username[unique], password, estaActivo, tituloAcademico, departamento, tipoUsuario_id)
+Tutor: id, nombre, apellido, email (único), username (único), password (write-only), estaActivo, tituloAcademico, departamento, tipoUsuario_id
 
-Email @tutor.com si rol = TUTOR
+Si rol = TUTOR, el email debe terminar en @tutor.com.
 
-Estudiante (id, nombre, apellido, email[unique], username[unique], password, estaActivo, codigo[unique], carrera, ciclo, tipoUsuario_id)
+Estudiante: id, nombre, apellido, email (único), username (único), password (write-only), estaActivo, codigo (único), carrera, ciclo, tipoUsuario_id
 
-Proyecto (id, codigo[unique], título, resumen, …, estado enum, tutor_id, estudiante_id[unique])
+Proyecto: id, codigo (único), titulo, resumen, objetivos, areaTematica, palabrasClave, fechaInicio, fechaFin, estado (enum), calificacionFinal, urlRepositorio, urlDocumento, tutor_id, estudiante_id (único)
 
-FK a tutor y estudiante
-
-UNIQUE en estudiante_id ⇒ 1–1 Estudiante–Proyecto
+UNIQUE en estudiante_id ⇒ relación 1–1 Estudiante–Proyecto.
 
 🔑 Autenticación
 1) Crear ADMIN (una sola vez, sin token)
 curl -X POST http://localhost:9090/api/auth/register-admin \
  -H "Content-Type: application/json" \
  -d '{
-   "email": "admin@acceso.com",
-   "username": "ADMIN",
-   "password": "admin1234",
-   "nombre": "ADMIN",
-   "apellido": "ADMIN"
+  "email": "admin@acceso.com",
+  "username": "ADMIN",
+  "password": "admin1234",
+  "nombre": "ADMIN",
+  "apellido": "ADMIN"
  }'
-# 201 Created (si no existe); 409 Conflict si ya hay un ADMIN
+
+
+201 Created (si no existe)
+
+409 Conflict si ya hay un ADMIN
 
 2) Login (obtener JWT)
 curl -X POST http://localhost:9090/api/auth/login \
  -H "Content-Type: application/json" \
- -d '{"username":"ADMIN","password":"admin1234"}'
-# Respuesta:
-# {
-#   "accessToken":"<JWT>",
-#   "tokenType":"Bearer",
-#   "username":"ADMIN",
-#   "role":"ADMIN"
-# }
+ -d '{
+  "username": "ADMIN",
+  "password": "admin1234"
+ }'
 
 
-Guarda el token en TOKEN=<JWT> para siguientes llamadas.
+Respuesta:
+
+{
+  "accessToken": "<JWT>",
+  "tokenType": "Bearer",
+  "username": "ADMIN",
+  "role": "ADMIN"
+}
 
 
-🛂 Permisos y restricciones por rol (muy importante)
-Resumen por endpoint / método
+Guarda el token para siguientes llamadas:
+
+TOKEN=<JWT>
+
+🛂 Permisos y restricciones por rol
+
+Tabla compatible con GitHub:
+
 Recurso / Método	Público	TUTOR	ADMIN
-/api/auth/register-admin (POST)	✅	n/a	n/a
-/api/auth/login (POST)	✅	n/a	n/a
-/api/tipos-usuario (GET, GET/{id})	❌	✅	✅
-/api/tipos-usuario (POST, PUT, PATCH, DELETE)	❌	❌	✅ (prohibido crear/editar nombre ADMIN)
-/api/tutores (GET, GET/{id})	❌	✅	✅
-/api/tutores (POST, PUT, PATCH, DELETE)	❌	❌ (recomendado)	✅
-/api/estudiantes (GET, GET/{id})	❌	✅	✅
-/api/estudiantes (POST, PUT, PATCH, DELETE)	❌	✅	✅
-/api/proyectos (GET, GET/{id})	❌	✅	✅
-/api/proyectos (POST, PUT, PATCH, DELETE)	
+POST /api/auth/register-admin	✅	n/a	n/a
+POST /api/auth/login	✅	n/a	n/a
+GET /api/tipos-usuario / {id}	❌	✅	✅
+POST/PUT/PATCH/DELETE /api/tipos-usuario	❌	❌	✅
+GET /api/tutores / {id}	❌	✅	✅
+POST/PUT/PATCH/DELETE /api/tutores	❌	❌*	✅
+GET /api/estudiantes / {id}	❌	✅	✅
+POST/PUT/PATCH/DELETE /api/estudiantes	❌	✅	✅
+GET /api/proyectos / {id}	❌	✅	✅
+POST/PUT/PATCH/DELETE /api/proyectos	❌	✅	✅
+
+* Recomendado: solo ADMIN crea/edita/elimina tutores (TUTOR solo lee).
+Si deseas que TUTOR también cree tutores, ajusta los @PreAuthorize del TutorControlador.
+
+Reglas clave:
+
+Único ADMIN (crear segundo → 409 Conflict).
+
+ADMIN no se puede crear/editar por /api/tipos-usuario.
+
+Tutor.email (si rol = TUTOR) debe terminar en @tutor.com.
+
+Unicidades:
+
+Tutor: email, username
+
+Estudiante: email, username, codigo
+
+Proyecto: codigo, estudiante_id (1–1)
+
+estado del Proyecto ∈ PROPUESTO | EN_REVISION | APROBADO | EN_DESARROLLO | FINALIZADO | RECHAZADO
+
+calificacionFinal 0–100; fechas ISO YYYY-MM-DD
+
+Password obligatorio en altas; write-only en JSON.
 
 📚 Endpoints (con ejemplos)
 
-Todos los JSON sin comentarios y con header:
+Todos los JSON son válidos (sin comentarios) y con headers:
 
 Authorization: Bearer <JWT>
 Content-Type: application/json
 
 A) Tipos de Usuario
 
-Solo ADMIN puede crear/editar/eliminar.
-Prohibido crear/editar el nombre ADMIN por aquí.
-
-Crear TUTOR
+Crear TUTOR (solo ADMIN):
 
 curl -X POST http://localhost:9090/api/tipos-usuario \
- -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
- -d '{"nombre":"TUTOR","descripcion":"Usuario tutor del sistema"}'
+ -H "Authorization: Bearer $TOKEN" \
+ -H "Content-Type: application/json" \
+ -d '{
+  "nombre": "TUTOR",
+  "descripcion": "Usuario tutor del sistema"
+ }'
 
 
-Crear ESTUDIANTE
+Crear ESTUDIANTE (solo ADMIN):
 
 curl -X POST http://localhost:9090/api/tipos-usuario \
- -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
- -d '{"nombre":"ESTUDIANTE","descripcion":"Usuario estudiante"}'
+ -H "Authorization: Bearer $TOKEN" \
+ -H "Content-Type: application/json" \
+ -d '{
+  "nombre": "ESTUDIANTE",
+  "descripcion": "Usuario estudiante"
+ }'
 
 
-Listar / Obtener
+Listar / Obtener:
 
 curl -H "Authorization: Bearer $TOKEN" http://localhost:9090/api/tipos-usuario
 curl -H "Authorization: Bearer $TOKEN" http://localhost:9090/api/tipos-usuario/1
 
 
-Actualizar (PUT) / Parcial (PATCH) / Eliminar
+Actualizar (PUT) / Parcial (PATCH) / Eliminar (solo ADMIN):
 
 curl -X PUT http://localhost:9090/api/tipos-usuario/2 \
- -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
- -d '{"nombre":"TUTOR","descripcion":"Tutor académico"}'
+ -H "Authorization: Bearer $TOKEN" \
+ -H "Content-Type: application/json" \
+ -d '{
+  "nombre": "TUTOR",
+  "descripcion": "Tutor académico"
+ }'
 
 curl -X PATCH http://localhost:9090/api/tipos-usuario/2 \
- -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
- -d '{"descripcion":"Tutor académico (actualizado)"}'
+ -H "Authorization: Bearer $TOKEN" \
+ -H "Content-Type: application/json" \
+ -d '{
+  "descripcion": "Tutor académico (actualizado)"
+ }'
 
 curl -X DELETE http://localhost:9090/api/tipos-usuario/2 \
  -H "Authorization: Bearer $TOKEN"
 
 B) Tutores
 
-Crear/editar/eliminar: por defecto lo dejamos solo ADMIN (recomendado).
+Crear/editar/eliminar = solo ADMIN (recomendado).
 El servicio asigna TUTOR por defecto si no envías tipoUsuario.
 Si rol = TUTOR → email debe terminar en @tutor.com.
 
-Crear (sin tipoUsuario en el body)
+Crear (sin tipoUsuario en el body):
 
 curl -X POST http://localhost:9090/api/tutores \
- -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+ -H "Authorization: Bearer $TOKEN" \
+ -H "Content-Type: application/json" \
  -d '{
-   "nombre":"Matías",
-   "apellido":"Tutor",
-   "email":"matias@tutor.com",
-   "username":"mtutor",
-   "password":"Secreta123",
-   "estaActivo":true,
-   "tituloAcademico":"Ing.",
-   "departamento":"Sistemas"
+  "nombre": "Matías",
+  "apellido": "Tutor",
+  "email": "matias@tutor.com",
+  "username": "mtutor",
+  "password": "Secreta123",
+  "estaActivo": true,
+  "tituloAcademico": "Ing.",
+  "departamento": "Sistemas"
  }'
 
 
-Listar / Obtener
+Listar / Obtener:
 
 curl -H "Authorization: Bearer $TOKEN" http://localhost:9090/api/tutores
 curl -H "Authorization: Bearer $TOKEN" http://localhost:9090/api/tutores/1
 
 
-Actualizar (PUT)
+Actualizar (PUT):
 
 curl -X PUT http://localhost:9090/api/tutores/1 \
- -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+ -H "Authorization: Bearer $TOKEN" \
+ -H "Content-Type: application/json" \
  -d '{
-   "nombre":"Matías",
-   "apellido":"Tutor",
-   "email":"matias@tutor.com",
-   "username":"mtutor",
-   "password":"NuevaClave123",
-   "estaActivo":true,
-   "tituloAcademico":"MSc.",
-   "departamento":"Ciencias"
+  "nombre": "Matías",
+  "apellido": "Tutor",
+  "email": "matias@tutor.com",
+  "username": "mtutor",
+  "password": "NuevaClave123",
+  "estaActivo": true,
+  "tituloAcademico": "MSc.",
+  "departamento": "Ciencias"
  }'
 
 
-Parcial (PATCH)
+Parcial (PATCH):
 
 curl -X PATCH http://localhost:9090/api/tutores/1 \
- -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
- -d '{"departamento":"Computación","estaActivo":true}'
+ -H "Authorization: Bearer $TOKEN" \
+ -H "Content-Type: application/json" \
+ -d '{
+  "departamento": "Computación",
+  "estaActivo": true
+ }'
 
 
-Eliminar
+Eliminar:
 
 curl -X DELETE http://localhost:9090/api/tutores/1 \
  -H "Authorization: Bearer $TOKEN"
@@ -239,48 +293,54 @@ C) Estudiantes
 ADMIN/TUTOR pueden gestionar estudiantes.
 Unicidades: email, username, codigo.
 
-Crear
+Crear:
 
 curl -X POST http://localhost:9090/api/estudiantes \
- -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+ -H "Authorization: Bearer $TOKEN" \
+ -H "Content-Type: application/json" \
  -d '{
-   "nombre":"Ana",
-   "apellido":"Pérez",
-   "email":"ana@demo.com",
-   "username":"aperez",
-   "password":"Clave123",
-   "estaActivo":true,
-   "codigo":"A001",
-   "carrera":"Sistemas",
-   "ciclo":"VI"
+  "nombre": "Ana",
+  "apellido": "Pérez",
+  "email": "ana@demo.com",
+  "username": "aperez",
+  "password": "Clave123",
+  "estaActivo": true,
+  "codigo": "A001",
+  "carrera": "Sistemas",
+  "ciclo": "VI"
  }'
 
 
-Listar / Obtener
+Listar / Obtener:
 
 curl -H "Authorization: Bearer $TOKEN" http://localhost:9090/api/estudiantes
 curl -H "Authorization: Bearer $TOKEN" http://localhost:9090/api/estudiantes/1
 
 
-Actualizar (PUT) / Parcial (PATCH) / Eliminar
+Actualizar (PUT) / Parcial (PATCH) / Eliminar:
 
 curl -X PUT http://localhost:9090/api/estudiantes/1 \
- -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+ -H "Authorization: Bearer $TOKEN" \
+ -H "Content-Type: application/json" \
  -d '{
-   "nombre":"Ana",
-   "apellido":"Pérez",
-   "email":"ana@demo.com",
-   "username":"aperez",
-   "password":"NuevaClave789",
-   "estaActivo":true,
-   "codigo":"A001",
-   "carrera":"Software",
-   "ciclo":"VII"
+  "nombre": "Ana",
+  "apellido": "Pérez",
+  "email": "ana@demo.com",
+  "username": "aperez",
+  "password": "NuevaClave789",
+  "estaActivo": true,
+  "codigo": "A001",
+  "carrera": "Software",
+  "ciclo": "VII"
  }'
 
 curl -X PATCH http://localhost:9090/api/estudiantes/1 \
- -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
- -d '{"carrera":"Computación","estaActivo":false}'
+ -H "Authorization: Bearer $TOKEN" \
+ -H "Content-Type: application/json" \
+ -d '{
+  "carrera": "Computación",
+  "estaActivo": false
+ }'
 
 curl -X DELETE http://localhost:9090/api/estudiantes/1 \
  -H "Authorization: Bearer $TOKEN"
@@ -295,62 +355,69 @@ estudiante_id único (máximo un proyecto por estudiante)
 
 tutor y estudiante deben existir
 
-estado en: PROPUESTO | EN_REVISION | APROBADO | EN_DESARROLLO | FINALIZADO | RECHAZADO
+estado: PROPUESTO, EN_REVISION, APROBADO, EN_DESARROLLO, FINALIZADO, RECHAZADO
 
-Fechas ISO YYYY-MM-DD, calificacionFinal 0–100
+calificacionFinal: 0–100; fechas ISO YYYY-MM-DD
 
-Crear
+Crear:
 
 curl -X POST http://localhost:9090/api/proyectos \
- -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+ -H "Authorization: Bearer $TOKEN" \
+ -H "Content-Type: application/json" \
  -d '{
-   "codigo":"PRJ-2025-001",
-   "titulo":"Sistema de Gestión Académica",
-   "resumen":"Proyecto de grado sobre gestión de PA",
-   "objetivos":"Automatizar procesos",
-   "areaTematica":"Sistemas",
-   "palabrasClave":"gestión, académico, api",
-   "fechaInicio":"2025-10-17",
-   "fechaFin":"2026-02-15",
-   "estado":"PROPUESTO",
-   "calificacionFinal": null,
-   "urlRepositorio":"https://github.com/org/repo",
-   "urlDocumento":"https://drive.google.com/...",
-   "tutor":{"id":1},
-   "estudiante":{"id":1}
+  "codigo": "PRJ-2025-001",
+  "titulo": "Sistema de Gestión Académica",
+  "resumen": "Proyecto de grado sobre gestión de PA",
+  "objetivos": "Automatizar procesos",
+  "areaTematica": "Sistemas",
+  "palabrasClave": "gestión, académico, api",
+  "fechaInicio": "2025-10-17",
+  "fechaFin": "2026-02-15",
+  "estado": "PROPUESTO",
+  "calificacionFinal": null,
+  "urlRepositorio": "https://github.com/org/repo",
+  "urlDocumento": "https://drive.google.com/...",
+  "tutor": { "id": 1 },
+  "estudiante": { "id": 1 }
  }'
 
 
-Listar / Obtener
+Listar / Obtener:
 
 curl -H "Authorization: Bearer $TOKEN" http://localhost:9090/api/proyectos
 curl -H "Authorization: Bearer $TOKEN" http://localhost:9090/api/proyectos/1
 
 
-Actualizar (PUT) / Parcial (PATCH) / Eliminar
+Actualizar (PUT) / Parcial (PATCH) / Eliminar:
 
 curl -X PUT http://localhost:9090/api/proyectos/1 \
- -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+ -H "Authorization: Bearer $TOKEN" \
+ -H "Content-Type: application/json" \
  -d '{
-   "codigo":"PRJ-2025-001",
-   "titulo":"Sistema v2",
-   "resumen":"Resumen actualizado",
-   "objetivos":"Objetivos actualizados",
-   "areaTematica":"Software",
-   "palabrasClave":"api, spring, postgres",
-   "fechaInicio":"2025-10-17",
-   "fechaFin":"2026-03-01",
-   "estado":"EN_DESARROLLO",
-   "calificacionFinal":95.5,
-   "urlRepositorio":"https://github.com/org/repo",
-   "urlDocumento":"https://drive.google.com/...",
-   "tutor":{"id":1},
-   "estudiante":{"id":1}
+  "codigo": "PRJ-2025-001",
+  "titulo": "Sistema v2",
+  "resumen": "Resumen actualizado",
+  "objetivos": "Objetivos actualizados",
+  "areaTematica": "Software",
+  "palabrasClave": "api, spring, postgres",
+  "fechaInicio": "2025-10-17",
+  "fechaFin": "2026-03-01",
+  "estado": "EN_DESARROLLO",
+  "calificacionFinal": 95.5,
+  "urlRepositorio": "https://github.com/org/repo",
+  "urlDocumento": "https://drive.google.com/...",
+  "tutor": { "id": 1 },
+  "estudiante": { "id": 1 }
  }'
 
 curl -X PATCH http://localhost:9090/api/proyectos/1 \
- -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
- -d '{"estado":"APROBADO","calificacionFinal":92.5,"fechaFin":"2026-02-20"}'
+ -H "Authorization: Bearer $TOKEN" \
+ -H "Content-Type: application/json" \
+ -d '{
+  "estado": "APROBADO",
+  "calificacionFinal": 92.5,
+  "fechaFin": "2026-02-20"
+ }'
 
 curl -X DELETE http://localhost:9090/api/proyectos/1 \
  -H "Authorization: Bearer $TOKEN"
@@ -369,7 +436,7 @@ Estudiante.email, Estudiante.username, Estudiante.codigo
 
 Proyecto.codigo, Proyecto.estudiante_id (1–1)
 
-Password obligatorio en altas; write-only en JSON (no se devuelve).
+Password obligatorio en altas; write-only en JSON (no se devuelve)
 
 ❗ Respuestas de error comunes
 
@@ -377,7 +444,7 @@ Password obligatorio en altas; write-only en JSON (no se devuelve).
 
 401 Unauthorized → sin token o token inválido
 
-403 Forbidden → sin permisos (p.ej., crear tipo de usuario sin ser ADMIN; intentar crear/editar ADMIN por API)
+403 Forbidden → sin permisos (p. ej., crear tipo de usuario sin ser ADMIN; intentar crear/editar ADMIN por API)
 
 404 Not Found → id no encontrado
 
