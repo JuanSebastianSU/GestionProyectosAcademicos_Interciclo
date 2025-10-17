@@ -435,16 +435,3 @@ curl -X DELETE http://localhost:9090/api/proyectos/1  -H "Authorization: Bearer 
 
 ---
 
-## 🧪 Tips
-
-- Passwords no se devuelven en respuestas (`@JsonProperty(WRITE_ONLY)`).
-- CORS: `http://localhost:9090` configurado; ajusta en `CorsConfig` si tu frontend usa otro origen.
-- Swagger (si lo activaste):
-  - `/swagger-ui/index.html`
-  - `/v3/api-docs`
-
----
-
-## 📄 Licencia
-
-Uso académico/demostrativo. Ajusta a tu preferencia.
