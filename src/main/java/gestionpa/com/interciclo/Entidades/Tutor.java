@@ -11,6 +11,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Entity
 @Table(
@@ -48,9 +49,9 @@ public class Tutor {
     private String username; // Sugerencia: CITEXT en migración SQL
 
     @NotBlank @Size(max = 255)
-    @JsonIgnore
-    @Column(nullable = false, length = 255)
-    private String password;
+@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+@Column(nullable = false, length = 255)
+private String password;
 
     @Builder.Default
     @Column(nullable = false)
